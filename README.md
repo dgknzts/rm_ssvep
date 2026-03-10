@@ -8,7 +8,7 @@ When multiple identical objects are presented in the visual periphery, observers
 
 We used **SSVEP (Steady-State Visual Evoked Potentials)** to frequency-tag three identical arcs, each flickering at a distinct frequency (f1 = 4.8 Hz, f2 = 6.0 Hz, f3 = 7.5 Hz). This allows us to track the neural representation of each item independently via EEG, while participants report how many arcs they perceive.
 
-<img src="figures/readme/fig1_method.png" width="700">
+<img src="figures/readme/fig1_method.png" width="550">
 
 **Figure 1.** Experimental paradigm. (A) Trial structure: fixation (1 s), stimulus presentation (10 s), response screen. (B) Gaze-contingent control with eye tracking. (C) Each arc was contrast-modulated at a unique frequency.
 
@@ -51,7 +51,7 @@ Intermediate CSV files are included in `data/spectral_csv/` to allow running the
 
 ## Citation
 
-If you use this code, please cite:
+If you use this code, please cite (preprint):
 
 > Oztas, D. N., L-Miao, L., Sayim, B., & Alp, N. (2025). Redundancy masking and the compression of information in the brain. *bioRxiv*, 2025-05. https://doi.org/10.1101/2025.05.30.657088
 
