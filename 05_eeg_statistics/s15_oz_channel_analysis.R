@@ -181,15 +181,26 @@ df_imf_filtered_bar <- df_imf_bar %>%
 
 
 # --- ANALYSIS 1: FUNDAMENTAL FREQUENCIES (Bar Plot A) ---
+library(MuMIn)
+
 model_fundamental <- lmer(
   SNR ~ Condition * freq + (1 | Subject),
   data = df_filtered_bar
 )
 pairwise_fundamental <- emmeans(model_fundamental, pairwise ~ Condition | freq, adjust = "tukey")
-contrast_df_fundamental <- as.data.frame(summary(pairwise_fundamental$contrasts, infer = TRUE)) %>%
-  mutate(significance = case_when(
-    p.value < 0.001 ~ "***", p.value < 0.01  ~ "**", p.value < 0.05  ~ "*", TRUE ~ ""
-  )) %>%
+eff_fund_df <- as.data.frame(eff_size(pairwise_fundamental, sigma = sigma(model_fundamental), edf = df.residual(model_fundamental)))
+print(r.squaredGLMM(model_fundamental))
+
+contrast_df_fundamental_all <- as.data.frame(summary(pairwise_fundamental$contrasts, infer = TRUE)) %>%
+  mutate(
+    significance = case_when(
+      p.value < 0.001 ~ "***", p.value < 0.01  ~ "**", p.value < 0.05  ~ "*", TRUE ~ ""
+    ),
+    cohens_d = eff_fund_df$effect.size
+  )
+
+# Significant contrasts only (for plot annotations)
+contrast_df_fundamental <- contrast_df_fundamental_all %>%
   filter(significance != "") %>%
   filter(grepl("Resp 2 - Resp 3", contrast) | grepl("Resp 3 - Resp 2", contrast))
 
@@ -199,10 +210,19 @@ model_imf <- lmer(
   data = df_imf_filtered_bar
 )
 pairwise_imf <- emmeans(model_imf, pairwise ~ Condition | freq_imf, adjust = "tukey")
-contrast_df_imf <- as.data.frame(summary(pairwise_imf$contrasts, infer = TRUE)) %>%
-  mutate(significance = case_when(
-    p.value < 0.001 ~ "***", p.value < 0.01  ~ "**", p.value < 0.05  ~ "*", TRUE ~ ""
-  )) %>%
+eff_imf_df <- as.data.frame(eff_size(pairwise_imf, sigma = sigma(model_imf), edf = df.residual(model_imf)))
+print(r.squaredGLMM(model_imf))
+
+contrast_df_imf_all <- as.data.frame(summary(pairwise_imf$contrasts, infer = TRUE)) %>%
+  mutate(
+    significance = case_when(
+      p.value < 0.001 ~ "***", p.value < 0.01  ~ "**", p.value < 0.05  ~ "*", TRUE ~ ""
+    ),
+    cohens_d = eff_imf_df$effect.size
+  )
+
+# Significant contrasts only (for plot annotations)
+contrast_df_imf <- contrast_df_imf_all %>%
   filter(significance != "") %>%
   filter(grepl("Resp 2 - Resp 3", contrast) | grepl("Resp 3 - Resp 2", contrast))
 
@@ -353,58 +373,23 @@ ggsave(
 
 # --- Formatting Statistics for Reporting ---
 
-# --- Reporting Fundamentals ---
-significant_contrasts_reporting_fundamental <- contrast_df_fundamental %>%
-  mutate(
-    p_value_formatted = case_when(
-      p.value < 0.001 ~ "p < .001",
-      p.value < 0.01  ~ sprintf("p = %.3f", p.value),
-      p.value < 0.05  ~ sprintf("p = %.3f", p.value),
-      TRUE            ~ sprintf("p = %.3f", p.value)
-    ),
-    report_stats_p_formatted = sprintf(
-      "b = %.3f, t(%.2f) = %.3f, %s, 95%% CI [%.3f, %.3f]",
-      estimate, df, t.ratio, p_value_formatted, lower.CL, upper.CL
-    )
-  ) %>%
-  select(freq, contrast, report_stats_p_formatted)
-
-if (nrow(significant_contrasts_reporting_fundamental) > 0) {
-  cat("\n--- Individual Report Lines (Fundamentals) ---\n")
-  for (i in 1:nrow(significant_contrasts_reporting_fundamental)) {
-    row <- significant_contrasts_reporting_fundamental[i, ]
-    cat(sprintf("Fundamental Frequency: %s, Comparison: %s\n\tStats: %s\n",
-                row$freq, row$contrast, row$report_stats_p_formatted))
-  }
-} else {
-  cat("\nNo significant (p < 0.05) pairwise comparisons to report between conditions for Fundamental frequencies.\n")
+# --- Oz Fundamental contrasts ---
+cat("\n--- Oz Fundamental contrasts ---\n")
+for (i in 1:nrow(contrast_df_fundamental_all)) {
+  r <- contrast_df_fundamental_all[i, ]
+  p_fmt <- ifelse(r$p.value < 0.001, "p < .001", sprintf("p = %.3f", r$p.value))
+  cat(sprintf("%s | %s: b = %.3f, SE = %.3f, t(%.2f) = %.3f, %s, 95%% CI [%.3f, %.3f], d = %.2f\n",
+              r$freq, r$contrast, r$estimate, r$SE, r$df, r$t.ratio,
+              p_fmt, r$lower.CL, r$upper.CL, r$cohens_d))
 }
 
-
-# --- Reporting IMFs ---
-significant_contrasts_reporting_imf <- contrast_df_imf %>%
-  mutate(
-    p_value_formatted = case_when(
-      p.value < 0.001 ~ "p < .001",
-      p.value < 0.01  ~ sprintf("p = %.3f", p.value),
-      p.value < 0.05  ~ sprintf("p = %.3f", p.value),
-      TRUE            ~ sprintf("p = %.3f", p.value)
-    ),
-    report_stats_p_formatted = sprintf(
-      "b = %.3f, t(%.2f) = %.3f, %s, 95%% CI [%.3f, %.3f]",
-      estimate, df, t.ratio, p_value_formatted, lower.CL, upper.CL
-    )
-  ) %>%
-  select(freq_imf, contrast, report_stats_p_formatted)
-
-if (nrow(significant_contrasts_reporting_imf) > 0) {
-  cat("\n--- Individual Report Lines (Intermodulation) ---\n")
-  for (i in 1:nrow(significant_contrasts_reporting_imf)) {
-    row <- significant_contrasts_reporting_imf[i, ]
-    cat(sprintf("Intermodulation Frequency: %s, Comparison: %s\n\tStats: %s\n",
-                row$freq_imf, row$contrast, row$report_stats_p_formatted))
-  }
-} else {
-  cat("\nNo significant (p < 0.05) pairwise comparisons to report between conditions for Intermodulation frequencies.\n")
+# --- Oz IM contrasts ---
+cat("\n--- Oz IM contrasts ---\n")
+for (i in 1:nrow(contrast_df_imf_all)) {
+  r <- contrast_df_imf_all[i, ]
+  p_fmt <- ifelse(r$p.value < 0.001, "p < .001", sprintf("p = %.3f", r$p.value))
+  cat(sprintf("%s | %s: b = %.3f, SE = %.3f, t(%.2f) = %.3f, %s, 95%% CI [%.3f, %.3f], d = %.2f\n",
+              r$freq_imf, r$contrast, r$estimate, r$SE, r$df, r$t.ratio,
+              p_fmt, r$lower.CL, r$upper.CL, r$cohens_d))
 }
 

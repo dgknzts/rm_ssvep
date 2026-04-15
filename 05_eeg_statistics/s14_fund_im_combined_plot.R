@@ -119,7 +119,8 @@ p_fundamental <- ggplot(plot_data_fund, aes(x = freq, y = overall_mean, color = 
             inherit.aes = FALSE, size = 8, color = "black", vjust = -0.5, fontface = "bold") +
   theme_master +
   scale_color_manual(values = condition_colors) +
-  facet_wrap(~ factor(Condition, labels = c("Response 2", "Response 3")), nrow = 1) +
+  facet_wrap(~ Condition, nrow = 1,
+             labeller = labeller(Condition = c("Resp 2" = "Response 2", "Resp 3" = "Response 3"))) +
   labs(x = "Fundamentals", y = "SNR") +
   scale_x_discrete(labels = c("f1" = expression(f[1]), "f2" = expression(f[2]), "f3" = expression(f[3]))) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.2)))
@@ -199,7 +200,8 @@ p_intermodulation <- ggplot(plot_data_im, aes(x = freq, y = overall_mean, color 
   theme_master +
   theme(axis.text.x = element_text(angle = 30, hjust = 1, size = 16)) +
   scale_color_manual(values = condition_colors) +
-  facet_wrap(~ factor(Condition, labels = c("Response 2", "Response 3")), nrow = 1) +
+  facet_wrap(~ Condition, nrow = 1,
+             labeller = labeller(Condition = c("Resp 2" = "Response 2", "Resp 3" = "Response 3"))) +
   labs(x = "Intermodulations", y = "SNR") +
   scale_x_discrete(labels = freq_labels_im) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.2)))

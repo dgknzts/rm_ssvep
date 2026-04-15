@@ -70,14 +70,23 @@ model <- lmer(
 pairwise_results <- emmeans(model, pairwise ~ freq | Condition, 
                             adjust = "tukey")
 
+# Effect sizes and model fit
+library(MuMIn)
+eff_df <- as.data.frame(eff_size(pairwise_results, sigma = sigma(model), edf = df.residual(model)))
+r2 <- r.squaredGLMM(model)
+print(r2)
+
 # Prepare contrast data
 contrast_df <- as.data.frame(summary(pairwise_results$contrasts, infer = TRUE)) %>%
-  mutate(significance = case_when(
-    p.value < 0.001 ~ "***",
-    p.value < 0.01  ~ "**",
-    p.value < 0.05  ~ "*",
-    TRUE ~ ""
-  ))
+  mutate(
+    significance = case_when(
+      p.value < 0.001 ~ "***",
+      p.value < 0.01  ~ "**",
+      p.value < 0.05  ~ "*",
+      TRUE ~ ""
+    ),
+    cohens_d = eff_df$effect.size
+  )
 
 plot_data_subject = df_filtered %>%
   group_by(Subject, Condition, freq) %>%
@@ -285,45 +294,12 @@ ggsave(
 # ---
 library(stringr)
 
-significant_contrasts_reporting <- contrast_df %>%
-  filter(p.value < 0.05) %>%
-  mutate(
-    report_stats = sprintf(
-      "b = %.3f, t(%.2f) = %.3f, p = %.3f, 95%% CI [%.3f, %.3f]",
-      estimate, df, t.ratio, p.value, lower.CL, upper.CL
-    ),
-    p_value_formatted = case_when(
-      p.value < 0.001 ~ "p < .001",
-      p.value < 0.01  ~ sprintf("p = %.3f", p.value),
-      p.value < 0.05  ~ sprintf("p = %.3f", p.value),
-      TRUE            ~ sprintf("p = %.3f", p.value)
-    ),
-    report_stats_p_formatted = sprintf(
-      "b = %.3f, t(%.2f) = %.3f, %s, 95%% CI [%.3f, %.3f]",
-      estimate, df, t.ratio, p_value_formatted, lower.CL, upper.CL
-    )
-  ) %>%
-  select(Condition, contrast, report_stats_p_formatted)
-
-if (nrow(significant_contrasts_reporting) > 0) {
-  cat("\n--- Intermodulation frequency analysis results ---\n")
-  for (i in 1:nrow(significant_contrasts_reporting)) {
-    row <- significant_contrasts_reporting[i, ]
-
-    # Add descriptive labels to contrast names
-    descriptive_contrast <- row$contrast
-    freq_parts <- str_trim(unlist(str_split(row$contrast, "-")))
-    if (length(freq_parts) == 2 && all(freq_parts %in% names(freq_labels))) {
-      freq1_label <- freq_labels[freq_parts[1]]
-      freq2_label <- freq_labels[freq_parts[2]]
-      descriptive_contrast <- paste0("'", freq1_label, "' vs '", freq2_label, "'")
-    }
-
-    cat(sprintf("Condition: %s | Comparison: %s (%s)\n",
-                row$Condition, row$contrast, descriptive_contrast))
-    cat(sprintf("  Statistics: %s\n\n", row$report_stats_p_formatted))
-  }
-} else {
-  cat("\nNo significant (p < 0.05) pairwise comparisons found.\n")
+cat("\n--- Intermodulation frequency contrasts ---\n")
+for (i in 1:nrow(contrast_df)) {
+  r <- contrast_df[i, ]
+  p_fmt <- ifelse(r$p.value < 0.001, "p < .001", sprintf("p = %.3f", r$p.value))
+  cat(sprintf("%s | %s: b = %.3f, SE = %.3f, t(%.2f) = %.3f, %s, 95%% CI [%.3f, %.3f], d = %.2f\n",
+              r$Condition, r$contrast, r$estimate, r$SE, r$df, r$t.ratio,
+              p_fmt, r$lower.CL, r$upper.CL, r$cohens_d))
 }
 

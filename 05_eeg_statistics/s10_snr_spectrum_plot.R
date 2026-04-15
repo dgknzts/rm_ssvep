@@ -101,10 +101,19 @@ t_test_data <- df %>%
 # --- E) One-sample t-tests against SNR = 1, FDR corrected ---
 t_test_results <- t_test_data  %>%
   group_by(Frequency) %>%
-  summarize(
-    t_test_p_value = t.test(SNR, mu = 1)$p.value,
-    Mean = mean(SNR, na.rm = TRUE)
-  ) %>%
+  summarize({
+    tt <- t.test(SNR, mu = 1)
+    tibble(
+      Mean = mean(SNR, na.rm = TRUE),
+      SD = sd(SNR, na.rm = TRUE),
+      t_statistic = tt$statistic,
+      df = tt$parameter,
+      t_test_p_value = tt$p.value,
+      CI_lower = tt$conf.int[1],
+      CI_upper = tt$conf.int[2],
+      cohens_d = (mean(SNR, na.rm = TRUE) - 1) / sd(SNR, na.rm = TRUE)
+    )
+  }) %>%
   ungroup() %>%
   mutate(
     adjusted_p_value = p.adjust(t_test_p_value, method = "fdr"),
@@ -280,15 +289,28 @@ if(nrow(t_test_results) > 0) {
   significant_with_labels <- t_test_results %>%
     left_join(SNR_summary_dot %>% select(Frequency, plot_text), by = "Frequency") %>%
     arrange(Frequency)
-  
+
   for(i in 1:nrow(significant_with_labels)) {
     row <- significant_with_labels[i,]
     cat(sprintf("%.1f Hz (%s): SNR = %.2f %s (p = %.4f, FDR p = %.4f)\n",
-                row$Frequency, row$plot_text, row$Mean, 
+                row$Frequency, row$plot_text, row$Mean,
                 row$Significance, row$t_test_p_value, row$adjusted_p_value))
   }
 } else {
   cat("No significant frequency components found.\n")
 }
+
+# --- Table 1: Full t-test statistics for manuscript ---
+table1 <- t_test_results %>%
+  left_join(SNR_summary_dot %>% select(Frequency, plot_text), by = "Frequency") %>%
+  arrange(Frequency) %>%
+  select(Component = plot_text, Hz = Frequency, M = Mean, SD,
+         t = t_statistic, df, p = t_test_p_value, pFDR = adjusted_p_value,
+         CI_lower, CI_upper, d = cohens_d) %>%
+  mutate(across(c(M, SD, t, d), ~round(., 2)),
+         across(c(p, pFDR), ~round(., 4)))
+
+cat("\n--- Table 1 ---\n")
+print(as.data.frame(table1), row.names = FALSE)
 
 
